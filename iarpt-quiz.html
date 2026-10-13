@@ -555,7 +555,7 @@ button,a,input,textarea{-webkit-tap-highlight-color:transparent}button:focus-vis
 /* Публичная конфигурация теста. Секреты и BOT_TOKEN здесь не размещать.
    При пустом apiUrl ответы никуда не отправляются; результат и PDF строятся в браузере. */
 window.IARPT_QUIZ_RUNTIME = (function () {
-  var config = {apiUrl: '', botUsername: '', allowDownload: true, timeoutMs: 10000};
+  var config = {apiUrl: 'https://72-56-39-50.sslip.io', botUsername: '', allowDownload: true, timeoutMs: 10000};
   // В адресе только одноразовый канал и origin родителя; имени и ответов в URL нет.
   try {
     var params = new URLSearchParams(window.location.hash.slice(1));
@@ -585,7 +585,6 @@ window.IARPT_QUIZ_RUNTIME = (function () {
      <p>Укажите контактные данные в форме ниже.</p>
    </div>
    <div class="lead-gate-widget" id="leadGateWidget">
-     <script id="89eee96275943ccda69e4f1105ff3586a62342ed" src="https://achernigova.online/pl/lite/widget/script?id=1665352"></script>
    </div>
    <p class="lead-gate-lock" id="leadGateLock" role="status" aria-live="polite">PDF пока закрыт — сначала отправьте контакт через форму выше.</p>
    <div class="actions" id="leadGateActions" hidden></div>
@@ -1385,6 +1384,28 @@ function bindLeadGateFrame() {
   leadFrame = frame;
   frame.dataset.iarptGateBound = '1';
   frame.title = frame.title || 'Форма получения PDF-карты';
+  // Вторая загрузка фрейма — форма отправлена и ГК повёл на переадресацию в бота.
+  let loads = 0;
+  frame.addEventListener('load', () => { if (++loads >= 2) unlockLeadGate('frame'); });
+}
+// Виджет ГК передаёт в форму query этой страницы; скрипт внутри формы кладёт ссылку в поле «Карта защитника».
+const GC_WIDGET_ID = '89eee96275943ccda69e4f1105ff3586a62342ed';
+function loadLeadWidget() {
+  const widget = $('#leadGateWidget');
+  if (!widget) return;
+  try {
+    const u = new URL(window.location.href);
+    if (SERVER) u.searchParams.set('iarpt_card', SERVER.id); else u.searchParams.delete('iarpt_card');
+    history.replaceState(history.state, '', u.pathname + u.search + u.hash);
+  } catch (_) { /* без параметра форма всё равно работает */ }
+  leadGateObserver?.disconnect(); leadGateObserver = null; leadFrame = null;
+  widget.innerHTML = '';
+  const script = document.createElement('script');
+  script.id = GC_WIDGET_ID;
+  script.src = 'https://achernigova.online/pl/lite/widget/script?id=1665352';
+  script.onload = () => document.dispatchEvent(new Event('StartWidget' + GC_WIDGET_ID));
+  widget.appendChild(script);
+  watchLeadGateFrame();
 }
 function watchLeadGateFrame() {
   bindLeadGateFrame();
@@ -1443,7 +1464,7 @@ function showLeadGate(botUrl, message) {
       lock.textContent = 'PDF пока закрыт — сначала отправьте контакт через форму выше.';
     }
     actions.hidden = true;
-    watchLeadGateFrame();
+    loadLeadWidget();
   }
 }
 window.addEventListener('message', event => {
