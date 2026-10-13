@@ -515,6 +515,7 @@ textarea:focus,input:focus{border-color:var(--red)}
 .lead-gate-head .kicker{display:inline-block;margin-bottom:8px;color:#102550;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
 .lead-gate-head h3{margin:0 0 8px;font-family:'Cormorant SC',Georgia,'Times New Roman',serif;font-size:28px;line-height:1.12;color:var(--ink)}
 .lead-gate-head p{margin:0;color:var(--body);font-size:14px;line-height:1.6}
+.lead-gate-popup{padding:20px}.lead-gate-popup p{margin:0 0 14px;color:var(--body);font-size:14px;line-height:1.6}
 .lead-gate-widget{min-height:160px;border-radius:18px;background:#f7f9fd;overflow:hidden}
 .lead-gate-widget iframe{display:block;width:100%!important;max-width:100%;border:0!important}
 .lead-gate-lock{margin:14px 0 0;padding:12px 14px;border-radius:14px;background:#f3f6fc;color:#52627b;font-size:12.5px;line-height:1.55}
@@ -1390,9 +1391,23 @@ function bindLeadGateFrame() {
 }
 // Виджет ГК передаёт в форму query этой страницы; скрипт внутри формы кладёт ссылку в поле «Карта защитника».
 const GC_WIDGET_ID = '89eee96275943ccda69e4f1105ff3586a62342ed';
+const GC_FORM_URL = 'https://achernigova.online/pl/lite/widget/widget?id=1665352';
+// На iarpt.ru квиз запущен в sandbox без allow-same-origin: вложенная форма ГК там не отправляется
+// и не может увести в бота, поэтому открываем её отдельной вкладкой.
+const SANDBOXED = window.origin === 'null' || location.protocol === 'blob:';
+function openLeadForm() {
+  const url = GC_FORM_URL + (SERVER ? '&iarpt_card=' + encodeURIComponent(SERVER.id) : '');
+  window.open(url, '_blank', 'noopener');
+  unlockLeadGate('popup');
+}
 function loadLeadWidget() {
   const widget = $('#leadGateWidget');
   if (!widget) return;
+  if (SANDBOXED) {
+    widget.innerHTML = '<div class="lead-gate-popup"><p>Форма откроется в новой вкладке. После отправки вас перенаправит в Telegram-бот, где придёт ваша карта.</p>'
+      + '<button class="btn block" type="button" onclick="openLeadForm()">Заполнить данные и получить карту ↗</button></div>';
+    return;
+  }
   try {
     const u = new URL(window.location.href);
     if (SERVER) u.searchParams.set('iarpt_card', SERVER.id); else u.searchParams.delete('iarpt_card');
@@ -1429,7 +1444,9 @@ function unlockLeadGate(source) {
   const actions = $('#leadGateActions');
   if (lock) {
     lock.classList.add('lead-gate-success');
-    lock.textContent = 'Контакт получен. PDF-карта открыта — можно скачать файл.';
+    lock.textContent = source === 'popup'
+      ? 'Форма открыта в новой вкладке. Если Telegram не откроется, карту можно скачать здесь.'
+      : 'Контакт получен. PDF-карта открыта — можно скачать файл.';
   }
   if (actions) actions.hidden = false;
   if (source === 'callback') {
